@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Rol {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique
+  usuarios Usuario[]
+}
+
+model Usuario {
+  id               Int     @id @default(autoincrement())
+  nombre           String
+  correo           String  @unique
+  pass_hash        String
+  esPassTemporal   Boolean @default(false)
+  rolId            Int
+  rol              Rol     @relation(fields: [rolId], references: [id])
+  ordenes          Orden[]
+}
+
+model TipoProducto {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  productos Producto[]
+}
+
+model Producto {
+  id             Int            @id @default(autoincrement())
+  nombre         String
+  descripcion    String         @db.Text
+  precio         Decimal        @db.Decimal(10, 2)
+  cantidad       Int            @default(0) // Stock para productos físicos
+  imagenUrl      String?        @db.VarChar(511)
+  activo         Boolean        @default(true)
+  fechaCreacion  DateTime       @default(now())
+  tipoProductoId Int
+  tipoProducto   TipoProducto   @relation(fields: [tipoProductoId], references: [id])
+  detalles       OrdenDetalle[]
+
+  @@index([nombre])
+}
+
+model EstadoOrden {
+  id      Int     @id @default(autoincrement())
+  nombre  String  @unique
+  ordenes Orden[]
+}
+
+model Orden {
+  id            Int            @id @default(autoincrement())
+  usuarioId     Int
+  usuario       Usuario        @relation(fields: [usuarioId], references: [id])
+  total         Decimal        @db.Decimal(10, 2)
+  estadoOrdenId Int
+  estadoOrden   EstadoOrden    @relation(fields: [estadoOrdenId], references: [id])
+  fecha         DateTime       @default(now())
+  detalles      OrdenDetalle[]
+}
+
+model OrdenDetalle {
+  id          Int       @id @default(autoincrement())
+  ordenId     Int
+  orden       Orden     @relation(fields: [ordenId], references: [id])
+  productoId  Int
+  producto    Producto  @relation(fields: [productoId], references: [id])
+  cantidad    Int
+  precioUnit  Decimal   @db.Decimal(10, 2)
+  fechaInicio DateTime? // Para las fechas de renta del servicio
+  fechaFin    DateTime? // Para las fechas de renta del servicio
+}
+
