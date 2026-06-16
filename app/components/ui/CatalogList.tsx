@@ -1,165 +1,200 @@
 "use client";
 
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { CatalogSkeleton } from "./skeletons"; // Tu skeleton independiente
+import RentCalendarModal from "./RentCalendarModal";
+import { useCartStore } from "@/app/store/useCartStore";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { CatalogSkeleton } from "./skeletons";
 
+// Interfaz para mapear la respuesta de tu API/Prisma
 interface Producto {
   id: number;
   nombre: string;
   descripcion: string;
-  precio: string;
+  precio: number;
   cantidad: number;
   imagenUrl: string | null;
   tipoProducto: {
-    nombre: string;
+    nombre: string; // "Físico" o "Servicio"
   };
 }
 
-// 📦 1. COMPONENTE DE LA LISTA: Lógica de datos y mapeo del diseño de referencia
 export default function CatalogList() {
-  // 1. Petición limpia con useQuery tradicional
+  // 1. Traemos la función de añadir ítems desde Zustand
+  const addItem = useCartStore((state) => state.addItem);
+
+  // Estado para controlar el modal de fechas de servicios
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<Producto | null>(null);
+
+  // 2. Tu Query que jala los datos de la API (ajusta la ruta según tu endpoint real)
   const {
     data: productos,
     isLoading,
     isError,
   } = useQuery<Producto[]>({
-    queryKey: ["productos"],
+    queryKey: ["productos-catalogo"],
     queryFn: async () => {
-      const response = await fetch("/api/productos");
-      if (!response.ok) throw new Error("No se pudo cargar el catálogo");
-      return response.json();
+      const res = await fetch("/api/productos"); // O la ruta que estés usando
+      if (!res.ok) throw new Error("Error cargando el catálogo");
+      return res.json();
     },
   });
 
-  // 2. PANTALLA DE CARGA: Si React Query dice que está cargando, dibujamos la cuadrícula de esqueletos
-  if (isLoading) {
+  if (isLoading) return <CatalogSkeleton />;
+  if (isError)
     return (
-      <div>
-        <CatalogSkeleton />
+      <div className="text-red-500 text-center py-10">
+        Error al cargar productos...
       </div>
     );
-  }
 
-  // 3. PANTALLA DE ERROR: Por si se cae MySQL o la API falla
-  if (isError) {
-    return (
-      <div className="text-center py-12 text-red-400 font-medium">
-        ⚠️ Error al conectar con el servidor. Inténtalo de nuevo.
-      </div>
-    );
-  }
+  // Manejador para cuando se hace clic en el botón de la tarjeta
+  const handleActionClick = (prod: Producto) => {
+    if (prod.tipoProducto.nombre === "Servicio") {
+      // Si es servicio, abrimos el calendario
+      setSelectedService(prod);
+      setModalOpen(true);
+    } else {
+      // Si es producto físico, va directo al carrito global 🛒
+      addItem({
+        id: prod.id,
+        nombre: prod.nombre,
+        precio: Number(prod.precio),
+        imagenUrl: prod.imagenUrl,
+        tipo: "Físico",
+        stockDisponible: prod.cantidad,
+      });
+      alert(`¡${prod.nombre} añadido al carrito!`);
+    }
+  };
+
+  // Manejador cuando el modal devuelve las fechas confirmadas
+  const handleConfirmRental = (fechaInicio: string, fechaFin: string) => {
+    if (!selectedService) return;
+
+    addItem({
+      id: selectedService.id,
+      nombre: selectedService.nombre,
+      precio: Number(selectedService.precio),
+      imagenUrl: selectedService.imagenUrl,
+      tipo: "Servicio",
+      fechaInicio,
+      fechaFin,
+    });
+
+    alert(`¡Reserva para ${selectedService.nombre} configurada y añadida!`);
+  };
 
   return (
-    // {/* 🛒 CONTENEDOR PRINCIPAL: Aquí aplicamos la rejilla responsiva que controla todo */}
-    <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
-      {productos?.map((producto) => (
-        <div
-          className="group bg-zinc-900 border border-zinc-800/80 p-5 rounded-2xl text-zinc-50 flex flex-col justify-between shadow-lg shadow-black/20 hover:border-zinc-700 transition-all duration-300 relative"
-          key={producto.id}
-        >
-          {/* 🎯 ENCABEZADO ESTILO COMENTARIO */}
-          <div className="flex items-center gap-3 mb-4">
-            {/* Círculo con ID */}
-            <div className="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs font-bold rounded-full shrink-0">
-              #{producto.id}
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-base font-bold text-zinc-100 tracking-tight line-clamp-2 h-12 group-hover:text-white transition-colors">
-                {producto.nombre}
-              </h2>
-              {/* ⚠️ SOLUCIÓN TYPESCRIPT: Agregamos "?" por si tipoProducto viene vacío de la DB */}
-              <p className="text-xs text-zinc-400 font-medium tracking-wide uppercase mt-0.5">
-                {producto.tipoProducto?.nombre || "Producto"}
-              </p>
-            </div>
-          </div>
+    <div className="space-y-6 max-w-7xl mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold text-zinc-50 tracking-tight">
+        Catálogo de Soluciones
+      </h2>
 
-          {/* 🖼️ CONTENEDOR DE LA IMAGEN REESTILIZADO */}
-          {producto.imagenUrl && (
-            // Le damos un contenedor con aspecto fijo (tipo banner o cuadrado) para que no se deforme
-            <div className="relative w-full h-48 rounded-xl overflow-hidden mb-4 bg-zinc-950">
-              <Image
-                className="object-cover group-hover:scale-105 transition-transform duration-500" // Efecto de zoom suave al pasar el mouse
-                src={producto.imagenUrl}
-                alt={producto.nombre}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                priority={Number(producto.id) <= 2}
-              />
-            </div>
-          )}
+      {/* Grid Responsivo de Tarjetas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {productos?.map((prod) => {
+          const esServicio = prod.tipoProducto.nombre === "Servicio";
 
-          {/* 📄 CUERPO TEXTUAL */}
-          <div className="flex-grow mb-6">
-            <p className="text-sm text-zinc-400 line-clamp-3 leading-relaxed">
-              {producto.descripcion}
-            </p>
-          </div>
-
-          {/* 💸 ACCIONES Y PRECIO */}
-          {/* 💸 ACCIONES, PRECIO Y STOCK (Cumpliendo criterios de la USAC) */}
-          <div className="mt-auto pt-4 border-t border-zinc-800/60 flex flex-col gap-3">
-            {/* 📦 INDICADOR DE STOCK (Solo se muestra si es un Producto Físico) */}
-            {producto.tipoProducto?.nombre === "Físico" && (
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-zinc-500 font-medium">
-                  Disponibilidad:
-                </span>
-                {producto.cantidad > 0 ? (
-                  <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full text-[11px]">
-                    {producto.cantidad} en stock
-                  </span>
-                ) : (
-                  <span className="text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded-full text-[11px]">
-                    Agotado
-                  </span>
+          return (
+            <div
+              key={prod.id}
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col justify-between hover:border-zinc-700 transition-colors shadow-sm"
+            >
+              <div>
+                {prod.imagenUrl && (
+                  <div className="relative w-full h-48 rounded-xl overflow-hidden mb-4 bg-zinc-950 group">
+                    <Image
+                      className=" object-cover group-hover:scale-105 transition-transform duration-500" // Efecto de zoom suave al pasar el mouse
+                      src={prod.imagenUrl}
+                      alt={prod.nombre}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority={Number(prod.id) <= 2}
+                    />
+                  </div>
                 )}
-              </div>
-            )}
 
-            {/* CONTENEDOR DE PRECIO Y BOTÓN RESPONSIVO */}
-            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
-              <div className="flex flex-col">
-                {/* Texto dinámico según el tipo: Renta o Venta */}
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
-                  {producto.tipoProducto?.nombre === "Servicio"
-                    ? "Renta Mensual"
-                    : "Precio de Venta"}
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-extrabold text-zinc-100">
-                    Q{Number(producto.precio || 0).toFixed(2)}
+                {/* Etiquetas dinámicas de Categoría/Stock */}
+                <div className="flex justify-between items-center mb-2">
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                      esServicio
+                        ? "bg-purple-950 text-purple-300 border border-purple-800"
+                        : "bg-blue-950 text-blue-300 border border-blue-800"
+                    }`}
+                  >
+                    {prod.tipoProducto.nombre}
                   </span>
-                  {/* Sufijo para servicios */}
-                  {producto.tipoProducto?.nombre === "Servicio" && (
-                    <span className="text-xs text-zinc-400 font-medium">
-                      /mes
+
+                  {!esServicio && (
+                    <span
+                      className={`text-xs ${prod.cantidad > 0 ? "text-emerald-400 font-medium" : "text-red-400 font-semibold"}`}
+                    >
+                      {prod.cantidad > 0 ? `${prod.cantidad} disp.` : "Agotado"}
                     </span>
                   )}
                 </div>
+
+                {/* Título estandarizado a dos líneas fijas */}
+                <h3 className="text-sm font-semibold text-zinc-100 line-clamp-2 min-h-[2.5rem]">
+                  {prod.nombre}
+                </h3>
+                <p className="text-xs text-zinc-400 line-clamp-2 mt-1 mb-4">
+                  {prod.descripcion}
+                </p>
               </div>
 
-              <Button
-                disabled={
-                  producto.tipoProducto?.nombre === "Físico" &&
-                  producto.cantidad === 0
-                }
-                className={`w-full xl:w-auto font-bold px-4 py-2.5 h-auto text-sm rounded-xl transition-all border shrink-0 disabled:opacity-40 disabled:cursor-not-allowed text-center ${
-                  producto.tipoProducto?.nombre === "Servicio"
-                    ? "bg-zinc-800 hover:bg-blue-600 text-zinc-200 hover:text-white border-zinc-700/50 hover:border-transparent"
-                    : "bg-zinc-800 hover:bg-emerald-500 text-zinc-200 hover:text-zinc-950 border-zinc-700/50 hover:border-transparent"
-                }`}
-              >
-                {producto.tipoProducto?.nombre === "Servicio"
-                  ? "Contratar"
-                  : "Añadir al carro"}
-              </Button>
+              {/* Sección Inferior de Precios y Botón */}
+              <div className="space-y-3 pt-2 border-t border-zinc-800/50">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">
+                    Precio
+                  </span>
+                  <span className="text-base font-extrabold text-zinc-50">
+                    Q{Number(prod.precio).toFixed(2)}
+                    {esServicio && (
+                      <span className="text-xs font-normal text-zinc-400">
+                        {" "}
+                        / mes
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <Button
+                  onClick={() => handleActionClick(prod)}
+                  disabled={!esServicio && prod.cantidad <= 0}
+                  className={`w-full py-2 rounded-xl text-xs font-bold transition-all ${
+                    esServicio
+                      ? "bg-purple-600 hover:bg-purple-500 text-white"
+                      : "bg-zinc-100 hover:bg-zinc-200 text-zinc-950 disabled:bg-zinc-800 disabled:text-zinc-600"
+                  }`}
+                >
+                  {esServicio ? "Contratar Servicio" : "Añadir al Carrito"}
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
+
+      {/* 3. Inyección del Modal del Calendario */}
+      {selectedService && (
+        <RentCalendarModal
+          isOpen={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedService(null);
+          }}
+          productoNombre={selectedService.nombre}
+          precioMensual={Number(selectedService.precio)}
+          onConfirm={handleConfirmRental}
+        />
+      )}
     </div>
   );
 }

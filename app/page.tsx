@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import CatalogList from "./components/ui/CatalogList";
+import CartButton from "./components/ui/CartButton";
 
 // 🏛️ 2. COMPONENTE PRINCIPAL (Estructura de la página y Suspense)
 export default function CatalogPage() {
@@ -31,6 +32,9 @@ export default function CatalogPage() {
         </div>
 
         {/* 📦 EL CATÁLOGO REAL (Controlado por useQuery e isLoading) */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <CartButton />
+        </div>
         <CatalogList />
 
         {/* 📑 PIE DE PÁGINA ("Otros Componentes") */}
