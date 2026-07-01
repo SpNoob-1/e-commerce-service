@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs"; // 👈 Cambiado a bcryptjs para consistencia total
 
 export async function POST(request: Request) {
   try {
@@ -16,15 +16,17 @@ export async function POST(request: Request) {
       );
     }
 
+    const correoNormalizado = correo.toLowerCase(); // 👈 Normalizamos el correo
+
     // 1. Verificar si el usuario ya existe
     const usuarioExistente = await prisma.usuario.findUnique({
-      where: { correo },
+      where: { correo: correoNormalizado },
     });
 
     if (usuarioExistente) {
       return NextResponse.json(
         { error: "El correo electrónico ya está registrado." },
-        { status: 409 },
+        { status: 409 }, // 409 Conflict
       );
     }
 
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // 3. Encriptar la contraseña
+    // 3. Encriptar la contraseña de manera segura usando bcryptjs
     const salt = await bcrypt.genSalt(10);
     const pass_hash = await bcrypt.hash(password, salt);
 
@@ -47,10 +49,10 @@ export async function POST(request: Request) {
     const nuevoUsuario = await prisma.usuario.create({
       data: {
         nombre,
-        correo,
+        correo: correoNormalizado,
         pass_hash,
         rolId: rolCliente.id,
-        esPassTemporal: false,
+        esPassTemporal: false, // Las cuentas nuevas inician con clave definitiva
       },
     });
 
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("Error en API de Registro:", error);
+    console.error("❌ Error en API de Registro:", error);
     return NextResponse.json(
       { error: "Error interno en el servidor" },
       { status: 500 },

@@ -1,8 +1,6 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import CatalogList from "./components/ui/CatalogList";
-import CartButton from "./components/ui/CartButton";
+import CatalogList from "../components/ui/CatalogList";
+import CartButton from "../components/ui/CartButton";
 
 // 🏛️ 2. COMPONENTE PRINCIPAL (Estructura de la página y Suspense)
 export default function CatalogPage() {
@@ -20,15 +18,6 @@ export default function CatalogPage() {
               expertos.
             </p>
           </div>
-
-          <Link href="/login" className="shrink-0">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto font-bold px-5 py-2.5 h-auto text-sm rounded-xl border-zinc-800 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50 transition-all duration-200"
-            >
-              Iniciar Sesión
-            </Button>
-          </Link>
         </div>
 
         {/* 📦 EL CATÁLOGO REAL (Controlado por useQuery e isLoading) */}

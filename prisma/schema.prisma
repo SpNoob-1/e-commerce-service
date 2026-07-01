@@ -14,14 +14,14 @@ model Rol {
 }
 
 model Usuario {
-  id               Int     @id @default(autoincrement())
-  nombre           String
-  correo           String  @unique
-  pass_hash        String
-  esPassTemporal   Boolean @default(false)
-  rolId            Int
-  rol              Rol     @relation(fields: [rolId], references: [id])
-  ordenes          Orden[]
+  id             Int       @id @default(autoincrement())
+  nombre         String
+  correo         String    @unique
+  pass_hash      String
+  esPassTemporal Boolean   @default(false)
+  rolId          Int
+  rol            Rol       @relation(fields: [rolId], references: [id])
+  ordenes        Orden[]
 }
 
 model TipoProducto {
@@ -48,30 +48,48 @@ model Producto {
 
 model EstadoOrden {
   id      Int     @id @default(autoincrement())
-  nombre  String  @unique
+  nombre  String  @unique // 💵 Controla la transacción global: "Pendiente", "Pagado", "Cancelado"
   ordenes Orden[]
+}
+
+// 📦 NUEVO: Modelo para manejar el estado logístico unitario por producto comprado
+model EstadoDetalle {
+  id       Int            @id @default(autoincrement())
+  nombre   String         @unique // 🚚 "Pendiente", "Entregado" (Físicos) o "Activo", "Completado" (Servicios)
+  detalles OrdenDetalle[]
 }
 
 model Orden {
   id            Int            @id @default(autoincrement())
-  usuarioId     Int
-  usuario       Usuario        @relation(fields: [usuarioId], references: [id])
+  // 🌟 CAMBIO: Se vuelve opcional (?) para permitir compras express de invitados
+  usuarioId     Int?
+  usuario       Usuario?       @relation(fields: [usuarioId], references: [id])
+
   total         Decimal        @db.Decimal(10, 2)
   estadoOrdenId Int
   estadoOrden   EstadoOrden    @relation(fields: [estadoOrdenId], references: [id])
   fecha         DateTime       @default(now())
   detalles      OrdenDetalle[]
+
+  // 🚚 NUEVO: Datos obligatorios de contacto y logística de entrega de la orden
+  envioNombre    String
+  envioCorreo    String
+  envioTelefono  String
+  envioDireccion String?       // Opcional en la base de datos (por si compran solo un servicio online), pero requerido en el Front si es físico
 }
 
 model OrdenDetalle {
-  id          Int       @id @default(autoincrement())
-  ordenId     Int
-  orden       Orden     @relation(fields: [ordenId], references: [id])
-  productoId  Int
-  producto    Producto  @relation(fields: [productoId], references: [id])
-  cantidad    Int
-  precioUnit  Decimal   @db.Decimal(10, 2)
-  fechaInicio DateTime? // Para las fechas de renta del servicio
-  fechaFin    DateTime? // Para las fechas de renta del servicio
-}
+  id              Int           @id @default(autoincrement())
+  ordenId         Int
+  orden           Orden         @relation(fields: [ordenId], references: [id])
+  productoId      Int
+  producto        Producto      @relation(fields: [productoId], references: [id])
+  cantidad        Int
+  precioUnit      Decimal       @db.Decimal(10, 2)
+  fechaInicio     DateTime?     // Para las fechas de renta del servicio
+  fechaFin        DateTime?     // Para las fechas de renta del servicio o fecha de entrega real
 
+  // 🚀 RELACIÓN AGREGADA: Estado logístico individual para cada fila del carrito
+  estadoDetalleId Int
+  estadoDetalle   EstadoDetalle @relation(fields: [estadoDetalleId], references: [id])
+}
