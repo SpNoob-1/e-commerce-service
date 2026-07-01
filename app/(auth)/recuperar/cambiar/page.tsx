@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Link from "next/link";
 
-export default function LoginPage() {
+export default function CambiarPasswordPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({ correo: "", password: "" });
+  const [formData, setFormData] = useState({
+    correo: "",
+    passwordTemporal: "",
+    nuevoPassword: "",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +21,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/usuarios/auth/login", {
+      const response = await fetch("/api/usuarios/auth/cambiar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -27,28 +30,15 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al iniciar sesión");
+        throw new Error(
+          data.error || "Hubo un error al actualizar la contraseña",
+        );
       }
 
-      // Requerimiento de seguridad: Si la contraseña es temporal, lo mandamos a cambiarla
-      if (data.usuario.esPassTemporal) {
-        alert("Tu contraseña es temporal. Debes cambiarla ahora.");
-        router.push("/recuperar/cambiar");
-        return;
-      }
-
-      // ==========================================
-      // 🚀 PARCHE CLAVE SPRINT 4: PERSISTENCIA
-      // ==========================================
-      // Guardamos el objeto del usuario real autenticado por la base de datos
-      localStorage.setItem("usuario_sesion", JSON.stringify(data.usuario));
-
-      // Disparamos un evento custom para obligar a la Navbar a actualizarse sin recargar página
-      window.dispatchEvent(new Event("sesion_iniciada"));
-      // ==========================================
-
-      alert(`¡Bienvenido de nuevo, ${data.usuario.nombre}!`);
-      router.push("/"); // Te redirige al catálogo principal (Sprint 2)
+      alert(
+        "¡Contraseña actualizada con éxito! Inicia sesión con tus nuevas credenciales.",
+      );
+      router.push("/login"); // Redirige al login para probar su nueva clave
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -61,10 +51,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6 rounded-xl bg-zinc-900 p-8 border border-zinc-800/80 shadow-2xl">
         <div className="text-center space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
-            Iniciar Sesión
+            Actualizar Contraseña
           </h1>
           <p className="text-sm text-zinc-400">
-            Ingresa tus credenciales para acceder a tu cuenta
+            Por seguridad, debes configurar una contraseña definitiva para tu
+            cuenta
           </p>
         </div>
 
@@ -92,24 +83,32 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-300">
-                Contraseña
-              </label>
-              <Link
-                href="/recuperar"
-                className="text-xs text-emerald-400 hover:underline"
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
+            <label className="text-sm font-medium text-zinc-300">
+              Contraseña Temporal
+            </label>
+            <Input
+              type="password"
+              required
+              placeholder="Pega la clave de Mailtrap"
+              value={formData.passwordTemporal}
+              onChange={(e) =>
+                setFormData({ ...formData, passwordTemporal: e.target.value })
+              }
+              className="bg-zinc-800/50 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus-visible:ring-emerald-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-zinc-300">
+              Nueva Contraseña Definitiva
+            </label>
             <Input
               type="password"
               required
               placeholder="••••••••"
-              value={formData.password}
+              value={formData.nuevoPassword}
               onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
+                setFormData({ ...formData, nuevoPassword: e.target.value })
               }
               className="bg-zinc-800/50 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus-visible:ring-emerald-500"
             />
@@ -120,19 +119,9 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-emerald-600 text-zinc-950 font-medium hover:bg-emerald-500 transition-colors"
           >
-            {loading ? "Cargando..." : "Continuar"}
+            {loading ? "Actualizando..." : "Confirmar Nueva Contraseña"}
           </Button>
         </form>
-
-        <p className="text-center text-xs text-zinc-400">
-          ¿No tienes una cuenta?{" "}
-          <Link
-            href="/register"
-            className="text-emerald-400 hover:underline font-medium"
-          >
-            Regístrate
-          </Link>
-        </p>
       </div>
     </main>
   );

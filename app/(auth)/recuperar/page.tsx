@@ -18,7 +18,7 @@ export default function RecuperarPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/recuperar", {
+      const response = await fetch("/api/usuarios/auth/recuperar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo }),

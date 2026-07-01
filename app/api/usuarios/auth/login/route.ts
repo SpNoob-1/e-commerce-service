@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs"; // 👈 Cambiado a bcryptjs para sincronía y compatibilidad total
 
 export async function POST(request: Request) {
   try {
@@ -13,9 +13,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Buscar al usuario por correo e incluir su rol
+    // 1. Buscar al usuario por correo (en minúsculas) e incluir su rol
     const usuario = await prisma.usuario.findUnique({
-      where: { correo },
+      where: { correo: correo.toLowerCase() }, // 👈 Control de minúsculas por seguridad
       include: { rol: true },
     });
 
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Comparar la contraseña ingresada con el hash de la base de datos
+    // 2. Comparar la contraseña ingresada con el hash usando bcryptjs
     const passwordValido = await bcrypt.compare(password, usuario.pass_hash);
 
     if (!passwordValido) {
@@ -44,14 +44,15 @@ export async function POST(request: Request) {
           id: usuario.id,
           nombre: usuario.nombre,
           correo: usuario.correo,
-          rol: usuario.rol.nombre,
-          esPassTemporal: usuario.esPassTemporal, // 👈 Clave para obligar al cambio de clave
+          rol: usuario.rol?.nombre || "Cliente normal", // Fallback seguro por si las moscas
+          rolId: usuario.rolId,
+          esPassTemporal: usuario.esPassTemporal, // 👈 Clave para obligar al cambio en tu frontend
         },
       },
       { status: 200 },
     );
   } catch (error) {
-    console.error("Error en API de Login:", error);
+    console.error("❌ Error en API de Login:", error);
     return NextResponse.json(
       { error: "Error interno en el servidor" },
       { status: 500 },
